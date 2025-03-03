@@ -81,7 +81,14 @@ function App() {
 
   return (
     <div className="DropApp">
-      <h1>Price Predictor</h1>
+      <div style={{padding:"1%", justifyContent:"center", alignItems:"center"}}>
+        <h1>Price Predictor App</h1>
+        <h4>Full Stack Project 1: React (Frontend) and Django (Backend)</h4>
+        <p>
+          Project is aimed at integrating machine learning model into app.
+          The app is to help predict the price of a stock based on historical data provided by the user in csv format. Data must include at least company name, date, and price. Note: price is in USD and refers to stock price. Price is predicted with CAGR (Compound Annual Growth Rate) of 15% and is calculated based on the price of the stock in 2025, February 13th.
+        </p>
+      </div>
 
       {/* Drag and Drop */}
       <Dropzone onDrop={onDrop} accept={{ 'text/csv': ['.csv'] }}>
