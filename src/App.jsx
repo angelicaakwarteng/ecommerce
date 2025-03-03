@@ -1,56 +1,148 @@
-import React, { useState } from "react";
-import FileUploader from '../src/FileUploader'
-import DataTable from '../src/DataTable'
-import Chart from '../src/Charts'
+import React, { useState } from 'react';
+import Dropzone from 'react-dropzone';
+import Papa from 'papaparse';
+import { Line } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
+import './App.css';
 
-const App = () => {
-  const [historicalData, setHistoricalData] = useState([]);
-  const [predictions, setPredictions] = useState([]);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
-  const handleDataProcessed = (data) => {
-    setHistoricalData(data);
-    sendDataToBackend(data);
+// Function to predict future prices
+const predictPrices = (price2025, cagr, years) => {
+  const predictions = [];
+  for (let i = 1; i <= years; i++) {
+    const futurePrice = price2025 * Math.pow(1 + cagr, i);
+    predictions.push({ year: 2025 + i, price: futurePrice });
+  }
+  return predictions;
+};
+
+function App() {
+  const [parsedData, setParsedData] = useState([]);
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [cagr, setCagr] = useState(0.15); 
+
+  // Update companies after parsing CSV
+  const companies = parsedData;
+  const predictions = selectedCompany ? predictPrices(selectedCompany.price, cagr, 10) : [];
+
+  // Chart data
+  const chartData = {
+    labels: predictions.map(p => p.year),
+    datasets: [
+      {
+        label: selectedCompany ? `${selectedCompany.company} Price (USD)` : "Price Prediction",
+        data: predictions.map(p => p.price),
+        borderColor: 'rgba(75, 192, 192, 1)',
+        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+        fill: true,
+      },
+    ],
   };
 
-  const sendDataToBackend = (data) => {
-    fetch("http://localhost:8000/api/predict/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ historical_data: data }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        console.log("Predictions from backend:", data);
-        setPredictions(data.predictions);
-      })
-      .catch((error) => {
-        console.error("Error:", error);
-        alert("Failed to get predictions");
-      });
+  const chartOptions = {
+    responsive: true,
+    plugins: {
+      legend: { position: 'top' },
+      title: { display: true, text: 'Stock Price Prediction (2025-2034)' },
+    },
+    scales: {
+      y: { beginAtZero: false, title: { display: true, text: 'Price (USD)' } },
+      x: { title: { display: true, text: 'Year' } },
+    },
+  };
+
+  // Handle CSV file drop
+  const onDrop = (acceptedFiles) => {
+    const file = acceptedFiles[0];
+    Papa.parse(file, {
+      header: true,
+      dynamicTyping: true,
+      complete: (results) => {
+        processData(results.data);
+      },
+      error: (error) => console.error('Error parsing CSV:', error),
+    });
+  };
+
+  const processData = (data) => {
+    const processed = data
+      .filter(row => row.company && row.date && row.priceUSD)
+      .map(row => ({
+        company: row.company,
+        date: row.date,
+        price: parseFloat(row.priceUSD),
+      }))
+      .filter(row => !isNaN(row.price));
+
+    setParsedData(processed);
+    if (processed.length > 0) setSelectedCompany(processed[0]); 
   };
 
   return (
-    <>
-    <div style={{flexWrap:"wrap"}}>
-      <div style={{ textAlign: "center", padding: "20px" }}>
-        <h1>Frontend UI: Full-Stack Project 1</h1>
-        <h3>My first full-stack project. Frontend UI is built on react and Backend runs on Python, Django.</h3>
-        <p>Project focuses on predicting the stock prices of the ecommerce dataset (csv file) for the next 10 years. Backend runs on ML model, Linear regression while frontend runs on React and react bootstrap. The rationale of the project is to receive the dataset at frontend (on the left) and send to backend for processing and predictions are communicated back to user in chart forms (on the right).</p>
-      </div>
-      <div style={{ padding: "20px", display: "flex" }}>
-        <div style={{display:"block", width: "30%"}}>
-          <h1>Price Predictor App</h1>
-          <FileUploader onDataProcessed={handleDataProcessed} />
-          {historicalData.length > 0 && <DataTable data={historicalData} />}
-        </div>
-        <div style={{display:"block", textAlign: "center", width: "40%"}}>
-          <h1>Price Prediction Charts</h1>
-          {predictions.length > 0 && <Chart predictions={predictions} />}
+    <div className="DropApp">
+      <h1>Price Predictor</h1>
+
+      {/* Drag and Drop */}
+      <Dropzone onDrop={onDrop} accept={{ 'text/csv': ['.csv'] }}>
+        {({ getRootProps, getInputProps }) => (
+          <section className="dropzone" {...getRootProps()}>
+            <input {...getInputProps()} />
+            <p>Drag and drop a CSV file here, or click to select one.</p>
+          </section>
+        )}
+      </Dropzone>
+
+      <div style={{display:"flex", justifyContent:"space-between", gap:"10px"}}>
+        {/* Parsed Data Table */}
+        {parsedData.length > 0 && (
+          <div>
+            <h3>Uploaded CSV Data</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Date</th>
+                  <th>Price (USD)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parsedData.map((row, i) => (
+                  <tr key={i}>
+                    <td>{row.company}</td>
+                    <td>{row.date}</td>
+                    <td>${row.price.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="chart">
+          {companies.length > 0 && (
+            <label>
+              Select Company:
+              <select
+                value={selectedCompany?.company || ""}
+                onChange={(e) => {
+                  const company = companies.find(c => c.company === e.target.value);
+                  setSelectedCompany(company);
+                }}
+              >
+                {companies.map((company, index) => (
+                  <option key={index} value={company.company}>
+                    {company.company}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <Line data={chartData} options={chartOptions} />
         </div>
       </div>
     </div>
-    </>
-  )
+  );
 }
 
-export default App
+export default App;
