@@ -1,7 +1,5 @@
 # React + Vite
 
-The Readme can be boring sometimes, I understand. That is why you can view the app here. kindly click on this link to view how the app works. Thank you! https://angelicaakwarteng.github.io/ecommerce/
-
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
